@@ -80,6 +80,73 @@ export async function fetchLeaderboard(timeFilter: TimeFilter): Promise<Leaderbo
 VITE_CURSOR_API_KEY=your_api_key_here
 ```
 
+## Activity Score Calculation
+
+The leaderboard uses a custom **Activity Score** formula to rank team members. This score combines multiple metrics with weighted values to emphasize quality over quantity.
+
+### Formula
+
+```typescript
+Activity Score = 
+  (totalAccepts × 2.0) +
+  (totalApplies × 1.5) +
+  (chatRequests × 1.2) +
+  (composerRequests × 1.5) +
+  (agentRequests × 2.0) +
+  (acceptedLinesAdded × 0.1) +
+  (cmdkUsages × 0.5)
+```
+
+### Weight Breakdown
+
+| Metric | Weight | Rationale |
+|--------|--------|-----------|
+| `totalAccepts` | **2.0x** | High value - indicates active use of AI suggestions |
+| `agentRequests` | **2.0x** | High value - advanced AI feature usage |
+| `totalApplies` | **1.5x** | Medium-high - shows engagement with AI features |
+| `composerRequests` | **1.5x** | Medium-high - active use of composer feature |
+| `chatRequests` | **1.2x** | Medium - regular AI interaction |
+| `cmdkUsages` | **0.5x** | Lower - command usage indicator |
+| `acceptedLinesAdded` | **0.1x** | Lowest - volume metric, normalized to prevent skewing |
+
+### Customizing the Formula
+
+To modify the weights, edit the `calculateActivityScore` function in `src/lib/api/mockData.ts`:
+
+```typescript
+function calculateActivityScore(metrics: LeaderboardEntry['metrics']): number {
+  return (
+    metrics.totalAccepts * 2.0 +        // Adjust these multipliers
+    metrics.totalApplies * 1.5 +        // to change the weighting
+    metrics.chatRequests * 1.2 +        // of different metrics
+    metrics.composerRequests * 1.5 +
+    metrics.agentRequests * 2.0 +
+    metrics.acceptedLinesAdded * 0.1 +
+    metrics.cmdkUsages * 0.5
+  );
+}
+```
+
+### Other Calculations
+
+**Time Period Scaling:**
+- Metrics are scaled by time period multipliers to simulate realistic accumulation:
+  - 7 days: `1.0x` (baseline)
+  - 30 days: `4.2x`
+  - 90 days: `12.5x`
+  - All time: `50x`
+
+**Derived Metrics:**
+- `totalRejects` = `totalApplies - totalAccepts`
+- `acceptedLinesAdded` = `totalLinesAdded × (65-85%)` (with variance)
+- `acceptedLinesDeleted` = `totalLinesDeleted × (70-90%)` (with variance)
+- `totalTabsAccepted` = `totalTabsShown × (80-95%)` (with variance)
+
+**Ranking:**
+- Entries are sorted by Activity Score (descending)
+- Ranks are assigned sequentially (1, 2, 3...) after sorting
+- When sorting by other fields, ranks are recalculated accordingly
+
 ## Demo
 
 This prototype uses realistic mock data to demonstrate the leaderboard functionality. The data includes:
